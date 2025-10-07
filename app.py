@@ -13,18 +13,16 @@ CLASSES_JSON = "classes.json"
 CAMERA_INDEX = 0
 INFER_EVERY_N_FRAMES = 3
 USE_GPU = torch.cuda.is_available()
-HOST = "0.0.0.0"  # Listen on all interfaces
+HOST = "0.0.0.0"
 PORT = 5000
-CONF_THRESHOLD = 0.6  # If confidence < this, treat as "empty background"
+CONF_THRESHOLD = 0.6 
 
-# Global variables for ESP32 communication
 latest_prediction = "Waiting..."
 latest_confidence = 0.0
 prediction_lock = threading.Lock()
 
 app = Flask(__name__)
 
-# Load classes
 if os.path.exists(CLASSES_JSON):
     with open(CLASSES_JSON, "r") as f:
         CLASS_NAMES = json.load(f)
@@ -33,14 +31,12 @@ else:
 print("CLASS_NAMES:", CLASS_NAMES)
 NUM_CLASSES = len(CLASS_NAMES)
 
-# Build model
 device = torch.device("cuda" if USE_GPU else "cpu")
 print("Device:", device)
 def build_model(num_classes):
     model = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
     model.fc = nn.Linear(model.fc.in_features, num_classes)
     return model
-
 model = build_model(NUM_CLASSES).to(device)
 state = torch.load(MODEL_PATH, map_location=device)
 if any(k.startswith("module.") for k in state.keys()):
@@ -53,19 +49,15 @@ model.load_state_dict(state)
 model.eval()
 softmax = nn.Softmax(dim=1)
 
-# Transforms
 transform = transforms.Compose([
     transforms.Resize((224,224)),
     transforms.ToTensor(),
     transforms.Normalize([0.485,0.456,0.406],[0.229,0.224,0.225])
 ])
 
-# Global variables for ESP32 communication
 latest_prediction = "Waiting..."
 latest_confidence = 0.0
 prediction_lock = threading.Lock()
-
-# Camera thread class
 class VideoCamera:
     def __init__(self, src=0):
         self.cap = cv2.VideoCapture(src)
@@ -102,21 +94,9 @@ class VideoCamera:
 camera = VideoCamera(src=CAMERA_INDEX)
 
 def is_white_background(frame, white_threshold=200, white_percentage=0.7):
-    """
-    Check if the frame has a predominantly white background.
-    
-    Args:
-        frame: BGR image frame
-        white_threshold: Minimum value for a pixel to be considered white (0-255)
-        white_percentage: Minimum percentage of white pixels to consider background as white
-    
-    Returns:
-        bool: True if background is predominantly white
-    """
-    # Convert to grayscale for easier white detection
+
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     
-    # Count pixels above white threshold
     white_pixels = np.sum(gray > white_threshold)
     total_pixels = gray.shape[0] * gray.shape[1]
     white_ratio = white_pixels / total_pixels
@@ -144,7 +124,6 @@ def gen_frames():
             continue
         frame_count += 1
 
-        # Check if background is predominantly white
         is_white_bg = is_white_background(frame)
 
         if frame_count % INFER_EVERY_N_FRAMES == 0:
@@ -154,7 +133,6 @@ def gen_frames():
                 label, conf, probs = predict_pil(pil)
                 last_label, last_conf = label, conf
                 
-                # Update global variables for ESP32
                 with prediction_lock:
                     if is_white_bg:
                         latest_prediction = "Place your finger"
@@ -173,9 +151,7 @@ def gen_frames():
                     latest_prediction = "Error"
                     latest_confidence = 0.0
 
-        # Overlay: label or "place your finger"
         if is_white_bg:
-            # White background detected - show "place your finger"
             text = "Place your finger"
             color = (0, 0, 255)  # red warning
         elif last_label is not None:
@@ -191,7 +167,7 @@ def gen_frames():
                     color = (255,150,0)
         else:
             text = "Place your finger"
-            color = (0, 0, 255)  # red warning
+            color = (0, 0, 255)  
         
         cv2.rectangle(frame, (5,5), (350,45), (0,0,0), -1)
         cv2.putText(frame, text, (10,30), cv2.FONT_HERSHEY_SIMPLEX, 0.9, color, 2, cv2.LINE_AA)
@@ -234,7 +210,6 @@ def api_output():
 
 @app.route('/esp32_status')
 def esp32_status():
-    """Endpoint for ESP32 to get current prediction status"""
     global latest_prediction, latest_confidence
     with prediction_lock:
         return jsonify({
@@ -246,7 +221,6 @@ def esp32_status():
 
 @app.route('/mobile')
 def mobile_view():
-    """Mobile-optimized view that works well in portrait mode"""
     return render_template('mobile.html')
 
 @app.route('/shutdown', methods=['POST'])
