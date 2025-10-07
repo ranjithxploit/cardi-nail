@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>CardiNail Mobile</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            overflow-x: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .header {
+            background: rgba(0,0,0,0.3);
+            padding: 15px;
+            text-align: center;
+            border-bottom: 2px solid rgba(255,255,255,0.1);
+        }
+        
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+        
+        .header p {
+            opacity: 0.8;
+            font-size: 14px;
+        }
+        
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 10px;
+            overflow: hidden;
+        }
+        
+        .video-container {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: rgba(0,0,0,0.4);
+            border-radius: 15px;
+            margin-bottom: 15px;
+            padding: 10px;
+            position: relative;
+        }
+        
+        .video-stream {
+            width: 100%;
+            max-width: 100%;
+            height: auto;
+            max-height: 60vh;
+            border-radius: 10px;
+            object-fit: contain;
+            background: #000;
+        }
+        
+        .status-overlay {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-weight: bold;
+            font-size: 16px;
+            min-width: 200px;
+            text-align: center;
+        }
+        
+        .info-panel {
+            background: rgba(0,0,0,0.4);
+            border-radius: 15px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .prediction-card {
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        
+        .prediction-text {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+        
+        .confidence-text {
+            font-size: 16px;
+            opacity: 0.9;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .stat-card {
+            background: rgba(255,255,255,0.1);
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            opacity: 0.8;
+            margin-bottom: 5px;
+        }
+        
+        .stat-value {
+            font-size: 18px;
+            font-weight: bold;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            color: white;
+            background: rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.3);
+        }
+        
+        .btn:active {
+            transform: scale(0.95);
+            background: rgba(255,255,255,0.3);
+        }
+        
+        .connection-indicator {
+            position: fixed;
+            top: 15px;
+            right: 15px;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #22c55e;
+            box-shadow: 0 0 8px rgba(34, 197, 94, 0.6);
+            z-index: 1000;
+        }
+        
+        .connection-indicator.offline {
+            background: #ef4444;
+            box-shadow: 0 0 8px rgba(239, 68, 68, 0.6);
+        }
+        
+        /* Health status colors */
+        .healthy {
+            background: linear-gradient(135deg, #22c55e, #16a34a);
+        }
+        
+        .warning {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+        }
+        
+        .danger {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+        }
+        
+        .waiting {
+            background: linear-gradient(135deg, #6b7280, #4b5563);
+        }
+        
+        /* Portrait orientation optimizations */
+        @media (orientation: portrait) {
+            .video-stream {
+                max-height: 50vh;
+            }
+            
+            .main-content {
+                padding: 8px;
+            }
+            
+            .stats-grid {
+                grid-template-columns: 1fr 1fr 1fr;
+            }
+        }
+        
+        /* Landscape orientation optimizations */
+        @media (orientation: landscape) {
+            .main-content {
+                flex-direction: row;
+                gap: 15px;
+            }
+            
+            .video-container {
+                flex: 2;
+                margin-bottom: 0;
+            }
+            
+            .side-panel {
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+            }
+            
+            .video-stream {
+                max-height: 80vh;
+            }
+        }
+        
+        /* Fullscreen styles */
+        .fullscreen-video {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 9999;
+            background: #000;
+            object-fit: contain;
+        }
+        
+        /* Loading animation */
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="connection-indicator" id="connectionStatus"></div>
+    
+    <div class="header">
+        <h1>CardiNail Mobile Monitor</h1>
+        <p>Real-time Nail Health Analysis</p>
+    </div>
+    
+    <div class="main-content">
+        <div class="video-container">
+            <img class="video-stream" id="videoStream" 
+                 src="{{ url_for('video_feed') }}" 
+                 alt="Live Video Stream"
+                 onclick="toggleFullscreen()">
+            <div class="status-overlay" id="statusOverlay">
+                <span id="overlayText">Loading...</span>
+            </div>
+        </div>
+        
+        <div class="side-panel">
+            <div class="info-panel">
+                <div class="prediction-card" id="predictionCard">
+                    <div class="prediction-text" id="predictionText">Waiting for analysis...</div>
+                    <div class="confidence-text" id="confidenceText">Confidence: --</div>
+                </div>
+                
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-label">Status</div>
+                        <div class="stat-value" id="statusText">Connecting</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Last Update</div>
+                        <div class="stat-value" id="lastUpdateText">--:--</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Analysis Count</div>
+                        <div class="stat-value" id="analysisCount">0</div>
+                    </div>
+                </div>
+                
+                <div class="controls">
+                    <button class="btn" onclick="refreshData()">
+                        <span id="refreshIcon">🔄</span> Refresh
+                    </button>
+                    <button class="btn" onclick="toggleFullscreen()">
+                        📺 Fullscreen
+                    </button>
+                    <button class="btn" onclick="capturePhoto()">
+                        📷 Capture
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let analysisCounter = 0;
+        let isFullscreen = false;
+        let lastPrediction = '';
+        
+        // Get status from Flask server
+        async function updateStatus() {
+            try {
+                const response = await fetch('/esp32_status');
+                const data = await response.json();
+                
+                // Update prediction display
+                const predictionText = document.getElementById('predictionText');
+                const confidenceText = document.getElementById('confidenceText');
+                const overlayText = document.getElementById('overlayText');
+                const predictionCard = document.getElementById('predictionCard');
+                
+                predictionText.textContent = data.prediction;
+                confidenceText.textContent = `Confidence: ${(data.confidence * 100).toFixed(1)}%`;
+                overlayText.textContent = data.prediction;
+                
+                // Update card styling based on prediction
+                predictionCard.className = 'prediction-card';
+                if (data.prediction.toLowerCase().includes('healthy')) {
+                    predictionCard.classList.add('healthy');
+                } else if (data.prediction.toLowerCase().includes('place')) {
+                    predictionCard.classList.add('waiting');
+                } else if (data.prediction.toLowerCase().includes('blue') || 
+                          data.prediction.toLowerCase().includes('clubb')) {
+                    predictionCard.classList.add('danger');
+                } else {
+                    predictionCard.classList.add('warning');
+                }
+                
+                // Update stats
+                document.getElementById('statusText').textContent = 'Connected';
+                document.getElementById('lastUpdateText').textContent = 
+                    new Date().toLocaleTimeString().slice(0, 5);
+                
+                // Increment analysis counter if prediction changed
+                if (lastPrediction !== data.prediction && data.prediction !== 'Waiting...') {
+                    analysisCounter++;
+                    document.getElementById('analysisCount').textContent = analysisCounter;
+                    lastPrediction = data.prediction;
+                }
+                
+                // Update connection indicator
+                document.getElementById('connectionStatus').className = 'connection-indicator';
+                
+            } catch (error) {
+                console.error('Error updating status:', error);
+                document.getElementById('statusText').textContent = 'Disconnected';
+                document.getElementById('connectionStatus').className = 'connection-indicator offline';
+            }
+        }
+        
+        function refreshData() {
+            const refreshIcon = document.getElementById('refreshIcon');
+            refreshIcon.innerHTML = '<div class="loading"></div>';
+            
+            updateStatus().finally(() => {
+                setTimeout(() => {
+                    refreshIcon.innerHTML = '🔄';
+                }, 1000);
+            });
+        }
+        
+        function toggleFullscreen() {
+            const videoStream = document.getElementById('videoStream');
+            
+            if (!isFullscreen) {
+                videoStream.classList.add('fullscreen-video');
+                if (document.documentElement.requestFullscreen) {
+                    document.documentElement.requestFullscreen();
+                }
+                isFullscreen = true;
+            } else {
+                videoStream.classList.remove('fullscreen-video');
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                }
+                isFullscreen = false;
+            }
+        }
+        
+        function capturePhoto() {
+            // Create a temporary canvas to capture the current video frame
+            const video = document.getElementById('videoStream');
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            canvas.width = video.naturalWidth || video.width;
+            canvas.height = video.naturalHeight || video.height;
+            
+            // This would require converting the img to a video element for actual capture
+            // For now, just show a notification
+            alert('Photo capture feature - would save current analysis result');
+        }
+        
+        // Handle orientation changes
+        window.addEventListener('orientationchange', function() {
+            setTimeout(() => {
+                // Refresh video stream after orientation change
+                const videoStream = document.getElementById('videoStream');
+                const currentSrc = videoStream.src;
+                videoStream.src = '';
+                setTimeout(() => {
+                    videoStream.src = currentSrc;
+                }, 100);
+            }, 500);
+        });
+        
+        // Handle fullscreen changes
+        document.addEventListener('fullscreenchange', function() {
+            if (!document.fullscreenElement) {
+                isFullscreen = false;
+                document.getElementById('videoStream').classList.remove('fullscreen-video');
+            }
+        });
+        
+        // Prevent zoom on double tap
+        let lastTouchEnd = 0;
+        document.addEventListener('touchend', function (event) {
+            const now = (new Date()).getTime();
+            if (now - lastTouchEnd <= 300) {
+                event.preventDefault();
+            }
+            lastTouchEnd = now;
+        }, false);
+        
+        // Update status every 2 seconds
+        setInterval(updateStatus, 2000);
+        
+        // Initial load
+        updateStatus();
+        
+        // Show loading state initially
+        document.getElementById('overlayText').innerHTML = '<div class="loading"></div> Loading...';
+    </script>
+</body>
+</html>

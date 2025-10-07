@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>CardiNail — Mobile View</title>
+<style>
+  :root {
+    --bg: #0b0b0f;
+    --card: #121217;
+    --accent: #0bd07a;
+    --warn: #ff4d4f;
+    --text: #e7eef6;
+  }
+  html,body { height:100%; margin:0; background:var(--bg); color:var(--text); font-family:Inter, Arial, sans-serif; -webkit-font-smoothing:antialiased; }
+  .wrap { height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:flex-start; gap:8px; padding:12px; box-sizing:border-box; }
+
+  header { width:100%; display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  h1 { font-size:18px; margin:0; padding:6px 0; }
+  .controls { display:flex; gap:8px; align-items:center; }
+
+  /* Portrait-first video container */
+  .video-area { width:100%; flex:1 1 auto; display:flex; align-items:center; justify-content:center; }
+  #live {
+    width: auto;
+    height: calc(100vh - 210px); /* leave space for header + controls */
+    max-width: 100%;
+    border-radius:10px;
+    background:#000;
+    object-fit:cover;
+    transform-origin:center center;
+    transition: transform .2s ease;
+  }
+
+  .info-row { width:100%; display:flex; gap:8px; align-items:center; justify-content:space-between; }
+  .label { background:var(--card); padding:8px 10px; border-radius:10px; font-weight:600; }
+  .actions { display:flex; gap:8px; }
+  button { padding:8px 10px; border-radius:8px; border:none; font-weight:700; cursor:pointer; }
+  .btn-accent { background:var(--accent); color:#042; }
+  .btn-warn { background:var(--warn); color:#111; }
+
+  .upload-card { width:100%; margin-top:8px; display:flex; gap:8px; align-items:center; flex-direction:column; }
+  .result { color:#cfe8d8; font-size:14px; white-space:pre-wrap; text-align:left; width:100%; max-width:720px; }
+
+  /* If device is landscape, keep layout sane */
+  @media (orientation: landscape) {
+    #live { height: calc(100vh - 160px); }
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>CardiNail — Live (mobile)</h1>
+      <div class="controls">
+        <button id="fullscreenBtn" title="Fullscreen">⤢</button>
+        <button id="rotateBtn" class="btn-accent" title="Rotate video">Rotate</button>
+      </div>
+    </header>
+
+    <div class="video-area">
+      <!-- MJPEG stream -->
+      <img id="live" src="{{ url_for('video_feed') }}" alt="Live feed (MJPEG)" />
+    </div>
+
+    <div class="info-row">
+      <div class="label" id="statusLabel">Waiting...</div>
+      <div class="actions">
+        <label style="cursor:pointer;">
+          <input id="captureInput" type="file" accept="image/*" capture="environment" style="display:none">
+          <button id="uploadBtn">Upload Photo</button>
+        </label>
+      </div>
+    </div>
+
+    <div class="upload-card">
+      <div id="predictResult" class="result" style="display:none;"></div>
+    </div>
+  </div>
+
+<script>
+const live = document.getElementById('live');
+const rotateBtn = document.getElementById('rotateBtn');
+const fullscreenBtn = document.getElementById('fullscreenBtn');
+const statusLabel = document.getElementById('statusLabel');
+const uploadBtn = document.getElementById('uploadBtn');
+const captureInput = document.getElementById('captureInput');
+const predictResult = document.getElementById('predictResult');
+
+let rotated = false;
+rotateBtn.addEventListener('click', () => {
+  rotated = !rotated;
+  live.style.transform = rotated ? 'rotate(90deg) scale(1.2)' : 'rotate(0)';
+});
+
+// fullscreen
+fullscreenBtn.addEventListener('click', async () => {
+  try {
+    if (document.fullscreenElement) {
+      await document.exitFullscreen();
+    } else {
+      await document.documentElement.requestFullscreen();
+    }
+  } catch(e) { console.warn(e) }
+});
+
+// Upload flow
+uploadBtn.addEventListener('click', () => captureInput.click());
+captureInput.addEventListener('change', async (ev) => {
+  const f = ev.target.files[0];
+  if (!f) return;
+  statusLabel.textContent = 'Uploading...';
+  const fd = new FormData();
+  fd.append('image', f);
+  try {
+    const res = await fetch('/predict_upload', { method:'POST', body: fd });
+    const json = await res.json();
+    if (json.error) {
+      statusLabel.textContent = 'Error';
+      predictResult.style.display = 'block';
+      predictResult.textContent = json.error;
+    } else {
+      statusLabel.textContent = `Predicted: ${json.label} (${(json.confidence*100).toFixed(1)}%)`;
+      predictResult.style.display = 'block';
+      predictResult.textContent = JSON.stringify(json.probs, null, 2);
+    }
+  } catch (e) {
+    statusLabel.textContent = 'Upload failed';
+    predictResult.style.display = 'block';
+    predictResult.textContent = String(e);
+  }
+  ev.target.value = ''; // reset
+});
+</script>
+</body>
+</html>
